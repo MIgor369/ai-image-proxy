@@ -1,45 +1,80 @@
 // api/generate.js
-const { Replicate } = require("replicate");
+const express = require('express');
+const Replicate = require('replicate');
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Метод не поддерживается' });
-  }
+const app = express();
 
-  const { prompt, width = 768, height = 768, model = 'sdxl' } = req.body;
+// Парсим JSON
+app.use(express.json());
 
-  if (!prompt) {
-    return res.status(400).json({ error: 'Требуется prompt' });
-  }
+// Получаем порт от Railway
+const PORT = process.env.PORT || 3000;
 
-  const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN;
-  if (!REPLICATE_API_TOKEN) {
-    return res.status(500).json({ error: 'Сервер не настроен: нет API-токена' });
+// Получаем токен из переменных окружения
+const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN;
+
+if (!REPLICATE_API_TOKEN) {
+  console.error('❌ Ошибка: Не задан REPLICATE_API_TOKEN');
+  process.exit(1);
+}
+
+// Создаём клиент Replicate
+const replicate = new Replicate({ auth: REPLICATE_API_TOKEN });
+
+// Главный эндпоинт генерации
+app.post('/generate', async (req, res) => {
+  const { prompt = "a beautiful landscape", width = 768, height = 768 } = req.body;
+
+  if (!prompt || typeof prompt !== 'string') {
+    return res.status(400).json({ error: 'Поле "prompt" обязательно и должно быть строкой' });
   }
 
   try {
-    const replicate = new Replicate({ auth: REPLICATE_API_TOKEN });
+    console.log('Генерация:', { prompt, width, height });
 
-    let version;
-    if (model === 'playground') {
-      version = '44eee6779b858b2f7023f38718f48e738730e97742e03952dc88172d6556881d'; // Playground v2
-    } else {
-      version = 'da72866234888c00e2048809c4e65877e85ba5f3a49f1a5529b38758430d2823'; // SDXL
+    const output = await replicate.run(
+      "stability-ai/sdxl:da72866234888c00e2048809c4e65877e85ba5f3a49f1a5529b38758430d2823",
+      {
+        input: {
+          prompt: prompt.trim(),
+          width: parseInt(width),
+          height: parseInt(height),
+          num_inference_steps: 30,
+          guidance_scale: 7.5,
+        },
+      }
+    );
+
+    const imageUrl = Array.isArray(output) ? output[0] : output;
+
+    if (!imageUrl) {
+      throw new Error('Изображение не сгенерировано');
     }
 
-    const output = await replicate.run(version, {
-      input: {
-        prompt: prompt,
-        width: parseInt(width),
-        height: parseInt(height),
-        guidance_scale: 7.5,
-        num_inference_steps: 30,
-      },
-    });
-
-    res.status(200).json({ url: Array.isArray(output) ? output[0] : output });
+    res.json({ url: imageUrl });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Ошибка генерации', details: err.message });
+    console.error('Ошибка при генерации:', err);
+    res.status(500).json({
+      error: 'Не удалось сгенерировать изображение',
+      details: err.message
+    });
   }
-}
+});
+
+// Проверка работоспособности
+app.get('/', (req, res) => {
+  res.json({
+    status: 'Прокси работает!',
+    message: 'Отправляйте POST запрос на /generate',
+    docs: 'https://github.com/MIgor369/ai-image-proxy'
+  });
+});
+
+// Запускаем сервер
+app.listen(PORT, () => {
+  console.log(`✅ Сервер запущен на порту ${PORT}`);
+  console.log(`🔗 Replicate model: stability-ai/sdxl`);
+});
+
+// Не нужно для Railway
+// module.exports = app;
