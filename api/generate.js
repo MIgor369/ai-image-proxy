@@ -1,16 +1,16 @@
-// api/generate.js (для Vercel)
+// api/generate.js (Vercel-safe, CommonJS)
 const Replicate = require('replicate');
 
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
 });
 
-export default async function handler(req, res) {
+module.exports = async function (req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Метод не поддерживается' });
   }
 
-  const { prompt = 'a beautiful landscape', width = 768, height = 768 } = req.body;
+  const { prompt = 'a cat in space', width = 768, height = 768 } = req.body;
 
   if (!prompt || typeof prompt !== 'string') {
     return res.status(400).json({ error: 'Поле "prompt" обязательно' });
@@ -31,9 +31,25 @@ export default async function handler(req, res) {
 
     const imageUrl = Array.isArray(output) ? output[0] : output;
 
+    if (!imageUrl) {
+      throw new Error('Изображение не сгенерировано');
+    }
+
     res.status(200).json({ url: imageUrl });
   } catch (err) {
-    console.error('Ошибка:', err);
-    res.status(500).json({ error: 'Не удалось сгенерировать изображение' });
+    console.error('Ошибка генерации:', err);
+    res.status(500).json({
+      error: 'Не удалось сгенерировать изображение',
+      details: err.message
+    });
   }
-}
+};
+
+// Для Vercel
+module.exports.config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+};
