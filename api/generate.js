@@ -18,7 +18,7 @@ module.exports = async function (req, res) {
 
   try {
     const output = await replicate.run(
-      'stability-ai/sdxl:da72866234888c00e2048809c4e65877e85ba5f3a49f1a5529b38758430d2823',
+      'stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de75e43274c09348876b973f165f6b8',
       {
         input: {
           prompt: prompt.trim(),
