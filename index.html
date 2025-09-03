@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Генератор ИИ-фото</title>
+  <style>
+    :root {
+      --bg: #f0f4f8;
+      --primary: #a0d8f1;
+      --secondary: #b8e0d2;
+      --accent: #6eceda;
+      --text: #333;
+      --border: #ccc;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      padding: 20px;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      color: var(--primary);
+      margin-bottom: 15px;
+    }
+    p {
+      text-align: center;
+      color: #555;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    textarea {
+      width: 100%;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      resize: vertical;
+      height: 100px;
+      margin-bottom: 15px;
+      font-size: 16px;
+    }
+    .settings {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    select, input {
+      flex: 1;
+      min-width: 130px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+    button:hover {
+      background: #5ab6c7;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .result {
+      margin-top: 20px;
+      text-align: center;
+    }
+    .loading {
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    #image-output {
+      max-width: 100%;
+      border-radius: 10px;
+      margin-top: 15px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .download-btn {
+      background: var(--secondary);
+      margin-top: 10px;
+    }
+    .error {
+      color: #e53935;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    @media (max-width: 600px) {
+      .settings {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎨 Генератор ИИ-фото</h1>
+    <p>Опишите, какое изображение хотите получить</p>
+
+    <textarea id="prompt" placeholder="Кот в космосе, ретро-стиль, неоновые цвета, высокая детализация"></textarea>
+
+    <div class="settings">
+      <select id="model">
+        <option value="stability-ai/sdxl">Stable Diffusion XL</option>
+        <option value="playgroundai/playground-v2">Playground v2</option>
+      </select>
+      <select id="width">
+        <option value="512">512px</option>
+        <option value="768" selected>768px</option>
+        <option value="1024">1024px</option>
+      </select>
+      <select id="height">
+        <option value="512">512px</option>
+        <option value="768" selected>768px</option>
+        <option value="1024">1024px</option>
+      </select>
+    </div>
+
+    <button id="generate-btn">✨ Сгенерировать</button>
+
+    <div class="result">
+      <div id="loading" style="display:none;" class="loading"></div>
+      <img id="image-output" style="display:none;" />
+      <a id="download-link" style="display:none;">
+        <button class="download-btn">⬇️ Скачать изображение</button>
+      </a>
+      <p id="error" class="error"></p>
+    </div>
+  </div>
+
+  <script>
+    // ✅ Исправленный URL (без пробелов!)
+    const PROXY_URL = 'https://ai-image-proxy-sage.vercel.app/api/generate';
+
+    // Поддержка Telegram Mini App
+    if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+      Telegram.WebApp.ready();
+      Telegram.WebApp.expand();
+    }
+
+    const generateBtn = document.getElementById('generate-btn');
+    const promptInput = document.getElementById('prompt');
+    const widthInput = document.getElementById('width');
+    const heightInput = document.getElementById('height');
+    const modelSelect = document.getElementById('model');
+    const loadingEl = document.getElementById('loading');
+    const imageOutput = document.getElementById('image-output');
+    const downloadLink = document.getElementById('download-link');
+    const errorEl = document.getElementById('error');
+
+    generateBtn.onclick = async () => {
+      const prompt = promptInput.value.trim();
+      if (!prompt) {
+        errorEl.textContent = 'Введите описание!';
+        return;
+      }
+
+      // Сброс
+      errorEl.textContent = '';
+      loadingEl.style.display = 'inline-block';
+      imageOutput.style.display = 'none';
+      downloadLink.style.display = 'none';
+      generateBtn.disabled = true;
+
+      try {
+        const response = await fetch(PROXY_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt,
+            width: widthInput.value,
+            height: heightInput.value,
+            model: modelSelect.value === 'playgroundai/playground-v2' ? 'playground' : 'sdxl'
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || data.details || 'Неизвестная ошибка');
+        }
+
+        if (!data.url) {
+          throw new Error('Не получен URL изображения');
+        }
+
+        // Показываем изображение
+        imageOutput.src = data.url;
+        imageOutput.onload = () => { loadingEl.style.display = 'none'; };
+        imageOutput.style.display = 'block';
+
+        // Ссылка на скачивание
+        downloadLink.href = data.url;
+        downloadLink.download = `ai-art-${Date.now()}.png`;
+        downloadLink.style.display = 'block';
+
+      } catch (err) {
+        errorEl.textContent = 'Ошибка: ' + (err.message || 'Сеть/сервер');
+        console.error(err);
+      } finally {
+        loadingEl.style.display = 'none';
+        generateBtn.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>
