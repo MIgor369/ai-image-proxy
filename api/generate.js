@@ -18,16 +18,16 @@ module.exports = async function (req, res) {
 
   try {
     const output = await replicate.run(
-      'stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b',
-      {
-        input: {
-          prompt: prompt.trim(),
-          width: parseInt(width),
-          height: parseInt(height),
-          num_inference_steps: 30,
-        },
-      }
-    );
+  'playgroundai/playground-v2:34b14f449fa3873925049f465bb114e9b5b211b934304077099892e1234e793f',
+  {
+    input: {
+      prompt: prompt.trim(),
+      width: parseInt(width),
+      height: parseInt(height),
+      num_inference_steps: 30,
+    },
+  }
+);
 
     const imageUrl = Array.isArray(output) ? output[0] : output;
 
