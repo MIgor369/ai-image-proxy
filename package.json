@@ -1,7 +1,10 @@
 {
   "name": "ai-image-proxy",
   "version": "1.0.0",
+  "scripts": {
+    "dev": "vercel dev"
+  },
   "dependencies": {
-    "replicate": "^0.13.0"
+    "replicate": "^1.0.0"
   }
 }
