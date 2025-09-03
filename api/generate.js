@@ -18,12 +18,12 @@ module.exports = async function (req, res) {
 
   try {
     const output = await replicate.run(
-  'playgroundai/playground-v2:34b14f449fa3873925049f465bb114e9b5b211b934304077099892e1234e793f',
+  "playgroundai/playground-v2-1024-v:44eee6779b858b2f7023f38718f48e738730e97742e03952dc88172d6556881d",
   {
     input: {
       prompt: prompt.trim(),
-      width: parseInt(width),
-      height: parseInt(height),
+      width: parseInt(width) || 1024,
+      height: parseInt(height) || 1024,
       num_inference_steps: 30,
     },
   }
